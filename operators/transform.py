@@ -1,6 +1,6 @@
 from airflow.operators.python import PythonOperator
 from airflow.providers.microsoft.mssql.hooks.mssql import MsSqlHook
-from typing import Optional, List, Callable, Dict
+from typing import Optional, List, Callable, Dict, Any
 from airflow.utils.operator_helpers import determine_kwargs
 
 
@@ -34,6 +34,11 @@ class TransformOperator(PythonOperator):
         self.parameters = parameters
         self.sql_kwargs = sql_kwargs
         self.output_file = output_file
+
+    def pre_execute(self, context: Any) -> None:
+        # prep sql statement to remove new line characters
+        # allows for multiline queries to be built in the operator instance!
+        self.sql = ' '.join([line.strip() for line in self.sql.splitlines()]).strip()
 
     def execute(self, context: Dict):
         # pull data from staging
