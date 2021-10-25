@@ -1,11 +1,6 @@
 from airflow.models.baseoperator import BaseOperator
-import logging
-
-
-try:
-    import matlab.engine
-except(IOError, RuntimeError, ImportError):
-    logging.error('Matlab not available on this system')
+from typing import Callable
+import matlab.engine
 
 
 class MatlabOperator(BaseOperator):
@@ -21,49 +16,46 @@ class MatlabOperator(BaseOperator):
 
     def __init__(
             self,
-            matlab_function,
-            m_dir=None,
-            op_args=None,
-            op_kwargs=None,
-            *args,
+            *,
+            matlab_function: str,
+            matlab_function_path: str,
+            op_args: list = None,
+            op_kwargs: list = None,
+            nargout: int = 0,
             **kwargs):
 
         super().__init__(**kwargs)
         self.matlab_function = matlab_function
-        self.m_dir = m_dir
+        self.matlab_function_path = matlab_function_path
         self.op_args = op_args
         self.op_kwargs = op_kwargs
+        self.nargout = nargout
         self.engine = None
 
-    def pre_execute(self, context):
-        if matlab.engine:
-            self.engine = matlab.engine.start_matlab()
-        if self.engine:
-            if self.m_dir is not None:
-                self.engine.addpath(self.m_dir)
-            logging.info("Matlab started...")
-        else:
-            msg = 'Matlab has not started on this node'
-            logging.error(msg)
-            raise
-
     def execute(self, context):
-        if self.engine:
-            result = getattr(self.engine, self.matlab_function)(*self.op_args,
-                                                                nargout=self.op_kwargs['nargout'])
-            print(result)
-            return result
-        else:
-            msg = 'Matlab has not started on this node'
-            logging.error(msg)
-            raise
+        self.engine = matlab.engine.start_matlab()
 
-    def on_kill(self):
         if self.engine:
+            # the matlab-python engine cannot unpack kwargs but can unpack positional args. So as a workaround, we'll
+            # unpack them here and append to op_args
+            for key, val in self.op_kwargs:
+                self.op_args.append(key)
+                self.op_args.append(val)
+
+            result = getattr(self.engine, self.matlab_function)(*self.op_args, nargout=self.nargout)
+
             self.engine.exit()
             self.engine = None
+        else:
+            raise Exception
 
-    def post_execute(self, context, **kwargs):
+        # ti = context['ti']
+        # for value, idx in enumerate(result):
+        #     if len(result) < 2:
+        #         idx = ''
+        #     ti.xcom_push(key=f'return_value{idx}', value=value)
+
+    def on_kill(self):
         if self.engine:
             self.engine.exit()
             self.engine = None
