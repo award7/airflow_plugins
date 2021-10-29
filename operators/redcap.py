@@ -71,3 +71,4 @@ class Db2RedcapOperator(PythonOperator):
         self.form = form
 
     def execute(self, context: Dict) -> None:
+        return

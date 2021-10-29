@@ -1,6 +1,6 @@
 from airflow.models.baseoperator import BaseOperator
-from typing import Callable
 import matlab.engine
+from typing import Any
 
 
 class MatlabOperator(BaseOperator):
@@ -18,23 +18,30 @@ class MatlabOperator(BaseOperator):
             self,
             *,
             matlab_function: str,
-            matlab_function_path: str,
+            matlab_function_paths: list = None,
             op_args: list = None,
-            op_kwargs: list = None,
+            op_kwargs: dict = None,
             nargout: int = 0,
             **kwargs):
 
         super().__init__(**kwargs)
         self.matlab_function = matlab_function
-        self.matlab_function_path = matlab_function_path
+        self.matlab_function_paths = matlab_function_paths
         self.op_args = op_args
         self.op_kwargs = op_kwargs
         self.nargout = nargout
         self.engine = None
 
-    def execute(self, context):
+    def pre_execute(self, context: Any) -> None:
+        # start engine
         self.engine = matlab.engine.start_matlab()
 
+        # add paths to matlab path
+        if self.matlab_function_paths:
+            for path in self.matlab_function_paths:
+                self.engine.addpath(path)
+
+    def execute(self, context: Any) -> None:
         if self.engine:
             # the matlab-python engine cannot unpack kwargs but can unpack positional args. So as a workaround, we'll
             # unpack them here and append to op_args
@@ -49,11 +56,15 @@ class MatlabOperator(BaseOperator):
         else:
             raise Exception
 
-        # ti = context['ti']
-        # for value, idx in enumerate(result):
-        #     if len(result) < 2:
-        #         idx = ''
-        #     ti.xcom_push(key=f'return_value{idx}', value=value)
+        ti = context['ti']
+        for value, idx in enumerate(result):
+            if len(result) < 2:
+                idx = ''
+            ti.xcom_push(key=f'return_value{idx}', value=value)
+
+    def post_execute(self, context: Any, result: Any = None):
+        if self.engine:
+            self.engine.exit()
 
     def on_kill(self):
         if self.engine:
