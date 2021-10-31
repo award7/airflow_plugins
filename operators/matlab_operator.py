@@ -14,6 +14,8 @@ class MatlabOperator(BaseOperator):
 
     ui_color = '#FB4D27'
 
+    template_fields = ['matlab_function_paths', 'op_args', 'op_kwargs']
+
     def __init__(
             self,
             *,
@@ -45,9 +47,10 @@ class MatlabOperator(BaseOperator):
         if self.engine:
             # the matlab-python engine cannot unpack kwargs but can unpack positional args. So as a workaround, we'll
             # unpack them here and append to op_args
-            for key, val in self.op_kwargs:
-                self.op_args.append(key)
-                self.op_args.append(val)
+            if self.op_kwargs:
+                for key, val in self.op_kwargs.items():
+                    self.op_args.append(key)
+                    self.op_args.append(val)
 
             result = getattr(self.engine, self.matlab_function)(*self.op_args, nargout=self.nargout)
 
@@ -56,11 +59,12 @@ class MatlabOperator(BaseOperator):
         else:
             raise Exception
 
-        ti = context['ti']
-        for value, idx in enumerate(result):
-            if len(result) < 2:
-                idx = ''
-            ti.xcom_push(key=f'return_value{idx}', value=value)
+        if self.nargout > 0:
+            ti = context['ti']
+            for idx, value in enumerate(result):
+                if len(result) < 2:
+                    idx = ''
+                ti.xcom_push(key=f'return_value{idx}', value=value)
 
     def post_execute(self, context: Any, result: Any = None):
         if self.engine:
