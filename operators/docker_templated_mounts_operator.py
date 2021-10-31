@@ -29,7 +29,7 @@ class DockerTemplatedMountsOperator(DockerOperator):
         for mount in self.mounts:
             target = mount['target']
             source = mount['source']
-            type = mount['type']
+            mount_type = mount['type']
 
             _mounts_local.append(
                 Mount(
