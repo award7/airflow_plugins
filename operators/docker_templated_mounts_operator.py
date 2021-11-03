@@ -1,6 +1,6 @@
 from airflow.providers.docker.operators.docker import DockerOperator
 from docker.types import Mount
-from typing import Any
+from typing import Any, Union, List
 
 
 """
@@ -24,7 +24,9 @@ class DockerTemplatedMountsOperator(DockerOperator):
         )
 
     def pre_execute(self, context: Any) -> None:
-        # make mounts
+        self.mounts = self._make_mounts(context=context)
+
+    def _make_mounts(self, *, context: Any) -> list:
         _mounts_local = []
         for mount in self.mounts:
             target = mount['target']
@@ -38,5 +40,4 @@ class DockerTemplatedMountsOperator(DockerOperator):
                     type=mount_type,
                 )
             )
-
-        self.mounts = _mounts_local
+        return _mounts_local
