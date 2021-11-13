@@ -1,6 +1,6 @@
 from airflow.models.baseoperator import BaseOperator
 from dicomsort.dicomsorter import DicomSorter
-from typing import Any
+from typing import Any, Optional
 
 
 class DicomSortOperator(BaseOperator):
@@ -9,11 +9,12 @@ class DicomSortOperator(BaseOperator):
             *,
             source: str,
             target: str,
-            filename: str or None,
-            sort_order: list or None,
-            anonymization: dict or None,
+            filename: Optional[str] = None,
+            sort_order: Optional[list] = None,
+            anonymization: Optional[dict] = None,
             keep_original=True,
-            ignore: dict or None,
+            ignore: Optional[dict] = None,
+            ignore_all_except: Optional[dict] = None,
             **kwargs
     ) -> None:
         super().__init__(**kwargs)
@@ -24,6 +25,7 @@ class DicomSortOperator(BaseOperator):
         self.anonymization = anonymization
         self.keep_original = keep_original
         self.ignore = ignore
+        self.ignore_all_except = ignore_all_except
 
     def execute(self, context: Any) -> None:
         dcm = DicomSorter(
@@ -33,6 +35,7 @@ class DicomSortOperator(BaseOperator):
             sort_order=self.sort_order,
             anonymization=self.anonymization,
             keep_original=self.keep_original,
-            ignore=self.ignore
+            ignore=self.ignore,
+            ignore_all_except=self.ignore_all_except
         )
         dcm.sort()
